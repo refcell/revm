@@ -412,6 +412,7 @@ pub fn reward_beneficiary<SPEC: Spec, EXT, DB: Database>(
             U256::from(gas.spent() - gas.refunded() as u64),
             SPEC::SPEC_ID,
         );
+        tracing::info!("Is empty isthmus scalars: {}", l1_block_info.empty_isthmus_scalars);
 
         // Send the L1 cost of the transaction to the L1 Fee Vault.
         let mut l1_fee_vault_account = context
