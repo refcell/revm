@@ -437,18 +437,15 @@ pub fn reward_beneficiary<SPEC: Spec, EXT, DB: Database>(
             .basefee
             .mul(U256::from(gas.spent() - gas.refunded() as u64));
 
-        // We can only touch the operator fee vault if the Isthmus spec is enabled.
-        if SPEC::SPEC_ID.is_enabled_in(SpecId::ISTHMUS) {
-            // Send the operator fee of the transaction to the coinbase.
-            let mut operator_fee_vault_account = context
-                .evm
-                .inner
-                .journaled_state
-                .load_account(OPERATOR_FEE_RECIPIENT, &mut context.evm.inner.db)?;
+        // Send the operator fee of the transaction to the coinbase.
+        let mut operator_fee_vault_account = context
+            .evm
+            .inner
+            .journaled_state
+            .load_account(OPERATOR_FEE_RECIPIENT, &mut context.evm.inner.db)?;
 
-            operator_fee_vault_account.mark_touch();
-            operator_fee_vault_account.data.info.balance += operator_fee_cost;
-        }
+        operator_fee_vault_account.mark_touch();
+        operator_fee_vault_account.data.info.balance += operator_fee_cost;
     }
     Ok(())
 }
