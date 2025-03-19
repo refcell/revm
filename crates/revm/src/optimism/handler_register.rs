@@ -279,11 +279,7 @@ pub fn reimburse_caller<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
     gas: &Gas,
 ) -> Result<(), EVMError<DB::Error>> {
-    let is_deposit = context.evm.inner.env.tx.optimism.source_hash.is_some();
-
-    if !is_deposit {
-        mainnet::reimburse_caller::<SPEC, EXT, DB>(context, gas)?;
-    }
+    mainnet::reimburse_caller::<SPEC, EXT, DB>(context, gas)?;
 
     if SPEC::SPEC_ID.is_enabled_in(SpecId::ISTHMUS) {
         let operator_fee_refund = context
