@@ -93,6 +93,8 @@ pub struct L1BlockInfo {
     pub operator_fee_constant: Option<U256>,
     /// True if Ecotone is activated, but the L1 fee scalars have not yet been set.
     pub(crate) empty_ecotone_scalars: bool,
+    /// True if Isthmus is activated, but the operator fee scalars have not yet been set.
+    pub(crate) empty_isthmus_scalars: bool,
     /// Last calculated l1 fee cost. Uses as a cache between validation and pre execution stages.
     pub tx_l1_cost: Option<U256>,
 }
@@ -161,12 +163,21 @@ impl L1BlockInfo {
                         [OPERATOR_FEE_CONSTANT_OFFSET..OPERATOR_FEE_CONSTANT_OFFSET + 8]
                         .as_ref(),
                 );
+
+                // For the first block of isthmus, the operator fee scalars are not set.
+                // Check if the operator fee scalars are empty.
+                // If so, we use the Ecotone cost function.
+                let empty_isthmus_scalars =
+                    operator_fee_scalars[OPERATOR_FEE_SCALAR_OFFSET..OPERATOR_FEE_CONSTANT_OFFSET + 8]
+                        == [0u8; 12];
+
                 Ok(L1BlockInfo {
                     l1_base_fee,
                     l1_base_fee_scalar,
                     l1_blob_base_fee: Some(l1_blob_base_fee),
                     l1_blob_base_fee_scalar: Some(l1_blob_base_fee_scalar),
                     empty_ecotone_scalars,
+                    empty_isthmus_scalars,
                     l1_fee_overhead,
                     operator_fee_scalar: Some(operator_fee_scalar),
                     operator_fee_constant: Some(operator_fee_constant),
@@ -198,6 +209,10 @@ impl L1BlockInfo {
         if !spec_id.is_enabled_in(SpecId::ISTHMUS) {
             return U256::ZERO;
         }
+        if self.empty_isthmus_scalars {
+            return U256::ZERO;
+        }
+
 
         self.operator_fee_charge_inner(gas_limit)
     }
@@ -222,6 +237,9 @@ impl L1BlockInfo {
     /// Introduced in isthmus. Prior to isthmus, the operator fee is always zero.
     pub fn operator_fee_refund(&self, gas: &Gas, spec_id: SpecId) -> U256 {
         if !spec_id.is_enabled_in(SpecId::ISTHMUS) {
+            return U256::ZERO;
+        }
+        if self.empty_isthmus_scalars {
             return U256::ZERO;
         }
 
