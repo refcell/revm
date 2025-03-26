@@ -26,6 +26,17 @@ pub mod secp256r1;
 pub mod utilities;
 
 pub use interface::*;
+
+// silence arkworks lint as bn impl will be used as default if both are enabled.
+cfg_if::cfg_if! {
+    if #[cfg(feature = "bn")]{
+        use ark_bn254 as _;
+        use ark_ff as _;
+        use ark_ec as _;
+        use ark_serialize as _;
+    }
+}
+
 #[cfg(all(feature = "c-kzg", feature = "kzg-rs"))]
 // silence kzg-rs lint as c-kzg will be used as default if both are enabled.
 use kzg_rs as _;
@@ -235,6 +246,40 @@ impl Precompiles {
         self.addresses.extend(items.iter().map(|p| *p.address()));
         self.inner.extend(items.into_iter().map(|p| (p.0, p.1)));
     }
+
+    /// Returns complement of `other` in `self`.
+    ///
+    /// Two entries are considered equal if the precompile addresses are equal.
+    pub fn difference(&self, other: &Self) -> Self {
+        let Self { inner, .. } = self;
+
+        let inner = inner
+            .iter()
+            .filter(|(a, _)| !other.inner.contains_key(*a))
+            .map(|(a, p)| (*a, *p))
+            .collect::<HashMap<_, _>>();
+
+        let addresses = inner.keys().cloned().collect::<HashSet<_>>();
+
+        Self { inner, addresses }
+    }
+
+    /// Returns intersection of `self` and `other`.
+    ///
+    /// Two entries are considered equal if the precompile addresses are equal.
+    pub fn intersection(&self, other: &Self) -> Self {
+        let Self { inner, .. } = self;
+
+        let inner = inner
+            .iter()
+            .filter(|(a, _)| other.inner.contains_key(*a))
+            .map(|(a, p)| (*a, *p))
+            .collect::<HashMap<_, _>>();
+
+        let addresses = inner.keys().cloned().collect::<HashSet<_>>();
+
+        Self { inner, addresses }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -296,7 +341,6 @@ impl PrecompileSpecId {
             BERLIN | LONDON | ARROW_GLACIER | GRAY_GLACIER | MERGE | SHANGHAI => Self::BERLIN,
             CANCUN => Self::CANCUN,
             PRAGUE | OSAKA => Self::PRAGUE,
-            LATEST => Self::LATEST,
         }
     }
 }
@@ -312,4 +356,22 @@ pub const fn u64_to_address(x: u64) -> Address {
     Address::new([
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7],
     ])
+}
+
+#[cfg(test)]
+mod test {
+    use crate::Precompiles;
+
+    #[test]
+    fn test_difference_precompile_sets() {
+        let difference = Precompiles::istanbul().difference(Precompiles::berlin());
+        assert!(difference.is_empty());
+    }
+
+    #[test]
+    fn test_intersection_precompile_sets() {
+        let intersection = Precompiles::homestead().intersection(Precompiles::byzantium());
+
+        assert_eq!(intersection.len(), 4)
+    }
 }
